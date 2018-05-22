@@ -6,7 +6,7 @@ Bringing,X,X,X,,,X
 Change_operational_state,X,X,X,,,X
 Closure,X,X,X,,,X
 Entering,X,X,,,,X
-Following,X,X,,,,X
+Following,X,,,,,X
 Giving,X,X,X,,,X
 Inspecting,X,X,,X,,X
 Motion,X,X,,,,X
@@ -15,4 +15,3 @@ Placing,X,X,X,,,X
 Releasing,X,X,X,,,X
 Searching,X,X,,X,,X
 Taking,X,X,X,,,X
-Breathe,X,,,,,
