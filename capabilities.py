@@ -1,4 +1,6 @@
 import copy
+import tabulate
+from IPython.display import HTML, display
 from concepts import Context
 from concepts.lattices import Concept
 
@@ -75,6 +77,17 @@ class FrameRecommender(object):
         if verbose:
             print('nearest',result_concept.objects, 'between', result_concept.extent)
         return Recommendation(result_concept, cannot_provide_list)
+
+    def visualize_table(self):
+        """Displays a table of possible outcomes for each frame"""
+        headers = ['frame', 'fulfillable', 'missing_cap', 'recommended', 'possible']
+        lines = []
+        for frame in self.specification.frames:
+            fulfillable = self.can_fulfil(frame)
+            recommended = self.get_recommendation(frame)
+            line = [frame, fulfillable, recommended.reason_missing, recommended.nearest, recommended.possible]
+            lines.append(line)
+        display(HTML(tabulate.tabulate(lines, headers=headers, tablefmt='html')))
 
 class Recommendation(object):
     """A recommendation"""
