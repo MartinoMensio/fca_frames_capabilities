@@ -45,7 +45,11 @@ class ConceptNet(object):
         """Returns the relations (only the '@id') from id_a to id_b, if any"""
         url = '{}/query'.format(self.baseUrl)
         params = {'start': id_a, 'end': id_b}
-        response = requests.get(url, params=params).json()
+        r = requests.get(url, params=params)
+        try:
+            response = r.json()
+        except:
+            print(r)
 
         return [edge['@id'] for edge in response['edges']]
 
@@ -64,20 +68,20 @@ class ConceptNet(object):
 
         return set(results)
 
-    def getSuperEdgesSingle(self, id):
-        """Returns the Edges in the (id, IsA, ?) relations"""
+    def getRelationEndSingle(self, id, relation_type='/r/IsA'):
+        """Returns the Edges in the (id, relation_type, ?) relations"""
         url = '{}/query'.format(self.baseUrl)
-        params = {'start': id, 'rel': '/r/IsA'}
+        params = {'start': id, 'rel': relation_type}
         response = requests.get(url, params=params).json()
         return [edge['end']['@id'] for edge in response['edges']]
 
-    def getSuperEdgesGroup(self, group_ids):
+    def getRelationEndGroup(self, group_ids, relation_type='/r/IsA'):
         """Same as Single, but this time with a group of ids"""
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for id in group_ids:
-                futures.append(executor.submit(self.getSuperEdgesSingle, id))
+                futures.append(executor.submit(self.getRelationEndSingle, id, relation_type))
             for f in concurrent.futures.as_completed(futures):
                 results += f.result()
 
@@ -105,15 +109,20 @@ class ConceptNet(object):
         #now_relations_b = self.relationsBetweenGroups(group_target, group_b)
 
         if len(now_relations_a) < len(now_relations_b):
-            print('reason', now_relations_b)
+            print('RESULT=group_b reason', now_relations_b, '>', now_relations_a)
             return -1
         elif len(now_relations_a) > len(now_relations_b):
-            print('reason', now_relations_a)
+            print('RESULT=group_a reason', now_relations_a, '>', now_relations_b)
             return 1
         else:
             if max_recursions:
-                super_edges = self.getSuperEdgesGroup(group_target)
-                print('recurring on', super_edges)
-                return self.classifyRecurrent(super_edges, group_a, group_b, max_recursions - 1)
+                next_candidates = self.getRelationEndGroup(group_target, '/r/IsA')
+                if next_candidates:
+                    print('recurring on', next_candidates)
+                else:
+                    # last chance: go on RelatedTo
+                    next_candidates = self.getRelationEndGroup(group_target, '/r/RelatedTo')
+                    print('related terms', next_candidates)
+                return self.classifyRecurrent(next_candidates, group_a, group_b, max_recursions -1)
             else:
                 return 0
