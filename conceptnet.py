@@ -1,6 +1,8 @@
 import requests
 import time
 
+from collections import defaultdict
+
 import concurrent.futures
 
 
@@ -69,10 +71,10 @@ class ConceptNet(object):
 
         return set(results)
 
-    def getRelationEndSingle(self, id, relation_type='/r/IsA'):
+    def getRelationEndSingle(self, id, relation_type='/r/IsA', source='/s/resource/wordnet/rdf/3.1'):
         """Returns the Edges in the (id, relation_type, ?) relations"""
         url = '{}/query'.format(self.baseUrl)
-        params = {'start': id, 'rel': relation_type}
+        params = {'start': id, 'rel': relation_type, 'source': source}
         try:
             response = requests.get(url, params=params).json()
         except:
@@ -137,3 +139,25 @@ class ConceptNet(object):
                 return self.classifyRecurrent(next_candidates, group_a, group_b, max_recursions -1)
             else:
                 return 0
+
+    def getHyperonims(self, id):
+        """Returns all the Hyperonims"""
+        #results = defaultdict(lambda: False)
+        results = {}
+        # 1 get first level hp
+        first = self.getRelationEndSingle(id)
+        for h in first:
+            results[h] = False
+        print('%%')
+        # 2 while exist results not explored, find their hyperonims and add to the results (marked as not explored)
+        while any(not v for k,v in results.items()):
+            not_explored = [k for k,v in results.items() if not v]
+            print('not explored ',len(not_explored), '/', len(results.keys()), '\r', end='')
+            # explore one and update flags
+            selected = not_explored[0]
+            # TODO find a way to reduce candidates, maybe use 'source' param to restrict the field?
+            discovered = self.getRelationEndSingle(selected)
+            for h in discovered:
+                if not h in results.keys():
+                    results[h] = False
+            results[selected] = True
