@@ -136,11 +136,11 @@ class ConceptNet(object):
                     next_candidates = self.getRelationEndGroup(group_target, '/r/RelatedTo')
                     if verbose:
                         print('related terms', next_candidates)
-                return self.classifyRecurrent(next_candidates, group_a, group_b, max_recursions -1)
+                return self.classifyRecurrent(next_candidates, group_a, group_b, max_recursions -1, verbose)
             else:
                 return 0
 
-    def getHyperonims(self, id):
+    def get_hypernyms(self, id):
         """Returns all the Hyperonims"""
         #results = defaultdict(lambda: False)
         results = {}
@@ -161,3 +161,5 @@ class ConceptNet(object):
                 if not h in results.keys():
                     results[h] = False
             results[selected] = True
+
+        return results.keys()
