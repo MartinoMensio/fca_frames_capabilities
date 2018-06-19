@@ -32,7 +32,7 @@ class ConceptNet(object):
             return None
 
     def get_name(self, uri):
-        return '/'.join(uri.split('/')[3:])
+        return uri.split('/')[3]
 
     def getEntity(self, id, offset=0, limit=20):
         """Provides the entity given its Id, None if it does not exist"""
@@ -193,4 +193,4 @@ class ConceptNet(object):
                 results[c] = True
             current = next
 
-        return results.keys(), edges
+        return set(results.keys()), edges

@@ -50,8 +50,12 @@ class GraphUtils(object):
     def __init__(self):
         pass
 
+    def edges_name_normalize(self, edges_list, clean_name_fn=lambda a: a):
+        edges_list = set([(clean_name_fn(a), clean_name_fn(b), label) for (a, b, label) in edges_list])
+        return edges_list
+
     def create_graph(self, edges_list, clean_name_fn=lambda a: a):
-        """sub_uri_count is how many last components in the URI to keep """
+        """clean_name_fn is a function that can be passed to retrieve a node name from a uri"""
         graph = graphviz.Digraph('dot') # format='svg' or 'dot'
         nodes = set()
         for a_uri, b_uri, label in edges_list:

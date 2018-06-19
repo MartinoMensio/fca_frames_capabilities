@@ -158,7 +158,7 @@ class DBPedia(object):
                     all_results[h] = False
             all_results[selected] = True
         
-        return all_results.keys(), edges
+        return set(all_results.keys()), edges
 
     def get_id(self, name):
         #return name.replace(' ', '_').capitalize()
