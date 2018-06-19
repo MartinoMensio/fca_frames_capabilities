@@ -12,7 +12,7 @@ class ConceptNet(object):
         """Instantiates the ConceptNet wrapper"""
         self.baseUrl = 'http://api.conceptnet.io/'
 
-    def getId(self, text, language='en'):
+    def get_id(self, text, language='en'):
         """Provides the ID of a text, that can be used to interrogate ConceptNet.
         If the entity is not in conceptnet, returns None
 
@@ -30,6 +30,9 @@ class ConceptNet(object):
             return result
         else:
             return None
+
+    def get_name(self, uri):
+        return '/'.join(uri.split('/')[3:])
 
     def getEntity(self, id, offset=0, limit=20):
         """Provides the entity given its Id, None if it does not exist"""
@@ -140,8 +143,8 @@ class ConceptNet(object):
             else:
                 return 0
 
-    def get_hypernyms(self, id):
-        """Returns all the Hyperonims"""
+    def get_hypernyms_flagged(self, id):
+        """Returns all the Hypernims"""
         #results = defaultdict(lambda: False)
         results = {}
         # 1 get first level hp
@@ -163,3 +166,31 @@ class ConceptNet(object):
             results[selected] = True
 
         return results.keys()
+
+    def get_isa_tree(self, id, max_steps=2, verbose=False):
+        edges = set()
+        results = {} # if id in results == True --> hypernyms of id have been searched, otherwise only a leaf node
+        current = set()
+        current.add(id)
+        for i in range(max_steps):
+            next = set() # the next generation
+            if verbose:
+                print('current', current)
+            for c in current:
+                hyp_candidates = self.getRelationEndSingle(c)
+                if verbose:
+                    print('hyp_candidates', hyp_candidates)
+                for h in hyp_candidates:
+                    if h not in results.keys():
+                        # this is a new node
+                        results[h] = False
+                        edges.add((c, h, 'IsA'))
+                        next.add(h)
+                    elif not results[h]:
+                        next.add(h)
+                        
+                # with this node everything is done
+                results[c] = True
+            current = next
+
+        return results.keys(), edges

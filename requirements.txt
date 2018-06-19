@@ -3,3 +3,5 @@ concepts
 sparqlwrapper
 surf
 pylint
+spacy
+graphviz

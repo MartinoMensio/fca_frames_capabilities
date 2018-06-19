@@ -41,42 +41,51 @@ class DBPedia(object):
             WHERE { <%s> <http://purl.org/linguistics/gold/hypernym> ?hypernym }
         """
 
-    def get_hypernym(self, name, filter=''):
+        self.template_disambiguate = """
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX rfd: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            SELECT ?other
+            WHERE { <%s> dbo:wikiPageDisambiguates ?other . }
+        """
+
+    def get_hypernym(self, name, verbose=False):
         """Gets the rfd:type list with the selected filter.
         The filter is a partial string that must be contained in the URI
         'dbpedia.org/ontology/'
         """
         sparql = SPARQLWrapper(self.sparql_endpoint)
         query = self.template_hypernym % name
-        #print(query)
+        if verbose:
+            print(query)
         sparql.setQuery(query)
         sparql.setReturnFormat(JSON)
-        results = sparql.query().convert()
+        query_results = sparql.query().convert()
         types = []
-        #print(results)
-        for result in results["results"]["bindings"]:
+        if verbose:
+            print(query_results)
+        for result in query_results["results"]["bindings"]:
             uri = result['hypernym']['value']
-            if filter in uri:
-                # take the last part of URI
-                #last_part = '/'.join(uri.split('/')[-2:])
-                types.append(uri)
+            types.append(uri)
         #print(name, types)
         return types
     
-    def get_types(self, name, filter=''):
+    def get_types(self, name, verbose=False):
         """Gets the rfd:type list with the selected filter.
         The filter is a partial string that must be contained in the URI
         'dbpedia.org/ontology/'
         """
         sparql = SPARQLWrapper(self.sparql_endpoint)
         query = self.template % name
-        #print(query)
+        if verbose:
+            print(query)
         sparql.setQuery(query)
         sparql.setReturnFormat(JSON)
-        results = sparql.query().convert()
+        query_results = sparql.query().convert()
         types = []
-        #print(results)
-        for result in results["results"]["bindings"]:
+        if verbose:
+            print(query_results)
+        for result in query_results["results"]["bindings"]:
             uri = result['type']['value']
             if 'dbpedia.org/ontology/' in uri or 'dbpedia.org/resource' in uri:
                 # take the last part of URI
@@ -85,32 +94,71 @@ class DBPedia(object):
         #print(name, types)
         return types
 
-    def get_types_recurrent(self, name, verbose=False):
-        # TODO take iteratively the types of the types
-        """Returns all the Hyperonims"""
+    def get_disambiguate(self, name, verbose=False):
+        sparql = SPARQLWrapper(self.sparql_endpoint)
+        query = self.template_disambiguate % name
+        if verbose:
+            print(query)
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        query_results = sparql.query().convert()
+        others = []
+        if verbose:
+            print(query_results)
+        for result in query_results["results"]["bindings"]:
+            other = result['other']['value']
+            others.append(other)
+
+        # truncate to the first candidate if exists
+        return others[:1]
+
+    def get_all_types(self, name, verbose=False, disambiguate=False):
+        """Returns all the Hypernims and types
+        if disambiguate is True, also picks the first disambiguation if the search is stopping without types and hypernims"""
         #results = defaultdict(lambda: False)
-        results = {}
+        edges = set()
+        all_results = {}
         # 1 get first level hp
-        first = self.get_types(name) + self.get_hypernym(name)
+        types = self.get_types(name, verbose)
+        hypernyms = self.get_hypernym(name, verbose)
+        first = types + hypernyms
+        for t in types:
+            edges.add((name, t, 'rfd:type'))
+        for h in hypernyms:
+            edges.add((name, h, 'has_hypernym'))
+        if not first and disambiguate:
+            first = self.get_disambiguate(name, verbose)
+            for d in first:
+                edges.add((name, d, 'disambiguated_by'))
         for h in first:
-            results[h] = False
+            all_results[h] = False
         #print('%%')
         # 2 while exist results not explored, find their hyperonims and add to the results (marked as not explored)
-        while any(not v for k,v in results.items()):
-            not_explored = [k for k,v in results.items() if not v]
+        while any(not v for k,v in all_results.items()):
+            not_explored = [k for k,v in all_results.items() if not v]
             #print('not explored ',len(not_explored), '/', len(results.keys()), '\r', end='')
             # explore one and update flags
             selected = not_explored[0]
             # TODO find a way to reduce candidates, maybe use 'source' param to restrict the field?
             if verbose:
                 print('selected', selected)
-            discovered = self.get_types(selected) + self.get_hypernym(selected)
+            types = self.get_types(selected, verbose)
+            hypernyms = self.get_hypernym(selected, verbose)
+            discovered = types + hypernyms
+            for t in types:
+                edges.add((selected, t, 'rfd:type'))
+            for h in hypernyms:
+                edges.add((selected, h, 'has_hypernym'))
+            if not discovered and disambiguate:
+                discovered = self.get_disambiguate(selected, verbose)
+                for d in discovered:
+                    edges.add((selected, d, 'disambiguated_by'))
             for h in discovered:
-                if not h in results.keys():
-                    results[h] = False
-            results[selected] = True
+                if not h in all_results.keys():
+                    all_results[h] = False
+            all_results[selected] = True
         
-        return results.keys()
+        return all_results.keys(), edges
 
     def get_id(self, name):
         #return name.replace(' ', '_').capitalize()
@@ -131,6 +179,9 @@ class DBPedia(object):
             #return new_name
         else:
             return 'http://dbpedia.org/resource/{}'.format(truecased_name)
+
+    def get_name(self, uri):
+        return uri.split('/')[-1]
 
         
 
