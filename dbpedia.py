@@ -125,7 +125,7 @@ class DBPedia(object):
         for t in types:
             edges.add((name, t, 'rfd:type'))
         for h in hypernyms:
-            edges.add((name, h, 'has_hypernym'))
+            edges.add((name, h, 'hypernym'))
         if not first and disambiguate:
             first = self.get_disambiguate(name, verbose)
             for d in first:
@@ -148,7 +148,7 @@ class DBPedia(object):
             for t in types:
                 edges.add((selected, t, 'rfd:type'))
             for h in hypernyms:
-                edges.add((selected, h, 'has_hypernym'))
+                edges.add((selected, h, 'hypernym'))
             if not discovered and disambiguate:
                 discovered = self.get_disambiguate(selected, verbose)
                 for d in discovered:
