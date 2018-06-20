@@ -5,6 +5,8 @@ import graphviz
 from spacy.lemmatizer import Lemmatizer
 from spacy.lang.en import LEMMA_INDEX, LEMMA_EXC, LEMMA_RULES
 
+from collections import defaultdict
+
 
 class LanguageUtils(object):
 
@@ -68,3 +70,12 @@ class GraphUtils(object):
             graph.node(n)
         
         return graph
+
+    def get_roots(self, edges_list):
+        candidates = defaultdict(lambda: False)
+        for a, b, _ in edges_list:
+            candidates[b] = True
+        for a, b, _ in edges_list:
+            candidates[a] = False
+        results = [k for k, v in candidates.items() if v]
+        return results

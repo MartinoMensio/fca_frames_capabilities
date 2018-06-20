@@ -1,29 +1,31 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
-#from surf import Store, Session, ns
 
-"""
-class DBPedia(object):
-    
-    def __init__(self):
-        self.store = Store(reader='sparql_protocol', endpoint='http://dbpedia.org/sparql', default_graph='http://dbpedia.org')
-        self.session = Session(self.store, [])
-        self.session.enable_logging = True
-        ns.register(db='http://dbpedia.org/resource')
-        ns.register(dbonto='http://dbpedia.org/ontology')
-
-    def get_type(self, name):
-        resource = self.session.get_resource(name)
-        print(resource)
-"""
 class DBPedia(object):
 
     def __init__(self):
         self.sparql_endpoint = "http://dbpedia.org/sparql"
         self.template = """
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX rfd: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             SELECT ?type
             WHERE { <%s> rdf:type ?type }
+        """
+        self.template_superclass = """
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            SELECT ?type
+            WHERE { <%s> rdfs:subClassOf ?type }
+        """
+        self.template_ontology_check = """
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            ASK {
+                VALUES (?r) { (dbo:%s) }
+                    { ?r ?p ?o }
+                    UNION
+                    { ?s ?r ?o }
+                    UNION
+                    { ?s ?p ?r }
+                }
         """
         self.template_redirect = """
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -36,21 +38,21 @@ class DBPedia(object):
         """
         self.template_hypernym = """
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX rfd: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             SELECT ?hypernym
             WHERE { <%s> <http://purl.org/linguistics/gold/hypernym> ?hypernym }
         """
 
         self.template_disambiguate = """
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX rfd: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             PREFIX dbo: <http://dbpedia.org/ontology/>
             SELECT ?other
             WHERE { <%s> dbo:wikiPageDisambiguates ?other . }
         """
 
     def get_hypernym(self, name, verbose=False):
-        """Gets the rfd:type list with the selected filter.
+        """Gets the rdf:type list with the selected filter.
         The filter is a partial string that must be contained in the URI
         'dbpedia.org/ontology/'
         """
@@ -68,15 +70,18 @@ class DBPedia(object):
             uri = result['hypernym']['value']
             types.append(uri)
         #print(name, types)
-        return types
+        return sorted(types)
     
     def get_types(self, name, verbose=False):
-        """Gets the rfd:type list with the selected filter.
+        """Gets the rdf:type or rdfs:subClassOf list with the selected filter.
         The filter is a partial string that must be contained in the URI
         'dbpedia.org/ontology/'
         """
         sparql = SPARQLWrapper(self.sparql_endpoint)
-        query = self.template % name
+        if 'dbpedia.org/ontology/' in name:
+            query = self.template_superclass % name
+        else:
+            query = self.template % name
         if verbose:
             print(query)
         sparql.setQuery(query)
@@ -92,7 +97,7 @@ class DBPedia(object):
                 #last_part = '/'.join(uri.split('/')[-2:])
                 types.append(uri)
         #print(name, types)
-        return types
+        return sorted(types)
 
     def get_disambiguate(self, name, verbose=False):
         sparql = SPARQLWrapper(self.sparql_endpoint)
@@ -109,8 +114,7 @@ class DBPedia(object):
             other = result['other']['value']
             others.append(other)
 
-        # truncate to the first candidate if exists
-        return others[:1]
+        return sorted(others)
 
     def get_all_types(self, name, verbose=False, disambiguate=False):
         """Returns all the Hypernims and types
@@ -123,7 +127,8 @@ class DBPedia(object):
         hypernyms = self.get_hypernym(name, verbose)
         first = types + hypernyms
         for t in types:
-            edges.add((name, t, 'rfd:type'))
+            edge_type = 'rdfs:subClassOf' if ('dbpedia.org/ontology/' in name) else 'rdf:type'
+            edges.add((name, t, edge_type))
         for h in hypernyms:
             edges.add((name, h, 'hypernym'))
         if not first and disambiguate:
@@ -146,7 +151,8 @@ class DBPedia(object):
             hypernyms = self.get_hypernym(selected, verbose)
             discovered = types + hypernyms
             for t in types:
-                edges.add((selected, t, 'rfd:type'))
+                edge_type = 'rdfs:subClassOf' if ('dbpedia.org/ontology/' in selected) else 'rdf:type'
+                edges.add((selected, t, edge_type))
             for h in hypernyms:
                 edges.add((selected, h, 'hypernym'))
             if not discovered and disambiguate:
@@ -158,7 +164,7 @@ class DBPedia(object):
                     all_results[h] = False
             all_results[selected] = True
         
-        return set(all_results.keys()), edges
+        return set(sorted(all_results.keys())), set(sorted(edges))
 
     def get_id(self, name):
         #return name.replace(' ', '_').capitalize()
@@ -178,7 +184,18 @@ class DBPedia(object):
             return uri
             #return new_name
         else:
-            return 'http://dbpedia.org/resource/{}'.format(truecased_name)
+            # check if exists in ontology
+            sparql = SPARQLWrapper(self.sparql_endpoint)
+            query = self.template_ontology_check % truecased_name
+            sparql.setQuery(query)
+            sparql.setReturnFormat(JSON)
+            results = sparql.query().convert()
+            if results['boolean']:
+                area = 'ontology'
+            else:
+                # otherwise go to resource
+                area = 'resource'
+            return 'http://dbpedia.org/{}/{}'.format(area, truecased_name)
 
     def get_name(self, uri):
         return uri.split('/')[-1]
