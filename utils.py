@@ -59,17 +59,30 @@ class GraphUtils(object):
     def create_graph(self, edges_list, clean_name_fn=lambda a: a):
         """clean_name_fn is a function that can be passed to retrieve a node name from a uri"""
         graph = graphviz.Digraph('dot') # format='svg' or 'dot'
-        nodes = set()
+        nodes_colors = defaultdict(lambda: set())
         for a_uri, b_uri, label in edges_list:
+            node_a_color, node_b_color = self.get_node_color(a_uri), self.get_node_color(b_uri)
             a, b = clean_name_fn(a_uri), clean_name_fn(b_uri)
-            nodes.add(a)
-            nodes.add(b)
+            nodes_colors[a].add(node_a_color)
+            nodes_colors[b].add(node_b_color)
             graph.edge(a, b, label)
         
-        for n in nodes:
-            graph.node(n)
+        for node_name, colors in nodes_colors.items():
+            if len(colors) > 1:
+                color = 'purple'
+            else:
+                color = colors.pop()
+            graph.node(node_name, color=color)
         
         return graph
+
+    def get_node_color(self, node_name):
+        if 'dbpedia.org/' in node_name:
+            if '/resource/' in node_name:
+                return 'red'
+            elif '/ontology/' in node_name:
+                return 'blue'
+        return 'black'
 
     def get_roots(self, edges_list):
         candidates = defaultdict(lambda: False)

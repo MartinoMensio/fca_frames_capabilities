@@ -70,7 +70,7 @@ class DBPedia(object):
             uri = result['hypernym']['value']
             types.append(uri)
         #print(name, types)
-        return sorted(types)
+        return set(types)
     
     def get_types(self, name, verbose=False):
         """Gets the rdf:type or rdfs:subClassOf list with the selected filter.
@@ -97,7 +97,7 @@ class DBPedia(object):
                 #last_part = '/'.join(uri.split('/')[-2:])
                 types.append(uri)
         #print(name, types)
-        return sorted(types)
+        return set(types)
 
     def get_disambiguate(self, name, verbose=False):
         sparql = SPARQLWrapper(self.sparql_endpoint)
@@ -114,7 +114,7 @@ class DBPedia(object):
             other = result['other']['value']
             others.append(other)
 
-        return sorted(others)
+        return set(others)
 
     def get_all_types(self, name, verbose=False, disambiguate=False):
         """Returns all the Hypernims and types
@@ -125,7 +125,7 @@ class DBPedia(object):
         # 1 get first level hp
         types = self.get_types(name, verbose)
         hypernyms = self.get_hypernym(name, verbose)
-        first = types + hypernyms
+        first = types.union(hypernyms)
         for t in types:
             edge_type = 'rdfs:subClassOf' if ('dbpedia.org/ontology/' in name) else 'rdf:type'
             edges.add((name, t, edge_type))
@@ -149,7 +149,7 @@ class DBPedia(object):
                 print('selected', selected)
             types = self.get_types(selected, verbose)
             hypernyms = self.get_hypernym(selected, verbose)
-            discovered = types + hypernyms
+            discovered = types.union(hypernyms)
             for t in types:
                 edge_type = 'rdfs:subClassOf' if ('dbpedia.org/ontology/' in selected) else 'rdf:type'
                 edges.add((selected, t, edge_type))
@@ -164,7 +164,7 @@ class DBPedia(object):
                     all_results[h] = False
             all_results[selected] = True
         
-        return set(sorted(all_results.keys())), set(sorted(edges))
+        return set(all_results.keys()), set(edges)
 
     def get_id(self, name):
         #return name.replace(' ', '_').capitalize()

@@ -72,7 +72,7 @@ class ConceptNet(object):
             for f in concurrent.futures.as_completed(futures):
                 results += f.result()
 
-        return set(sorted(results))
+        return set(results)
 
     def getRelationEndSingle(self, id, relation_type='/r/IsA', source='/s/resource/wordnet/rdf/3.1'):
         """Returns the Edges in the (id, relation_type, ?) relations"""
@@ -96,7 +96,7 @@ class ConceptNet(object):
             for f in concurrent.futures.as_completed(futures):
                 results += f.result()
 
-        return set(sorted(results))
+        return set(results)
 
     def classifyRecurrent(self, group_target, group_a, group_b, max_recursions=2, verbose=False):
         """Given a group of ids group_target to be classified against two classes (defined by two groups of ids group_a and group_b),
@@ -165,7 +165,7 @@ class ConceptNet(object):
                     results[h] = False
             results[selected] = True
 
-        return set(sorted(results.keys()))
+        return set(results.keys())
 
     def get_isa_tree(self, id, max_steps=2, verbose=False):
         edges = set()
@@ -193,4 +193,4 @@ class ConceptNet(object):
                 results[c] = True
             current = next
 
-        return set(sorted(results.keys())), set(sorted(edges))
+        return set(results.keys()), set(edges)
